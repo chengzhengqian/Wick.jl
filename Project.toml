@@ -1,0 +1,11 @@
+name = "Wick"
+uuid = "ce9b6023-6d81-4e18-b4ae-e4e95ef782fe"
+authors = ["chengzhengqian-game <chengzhengqian@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+BitIntegers = "c3b6d118-76ef-56ca-8cc7-ebb389d030a1"
+CZQUtils = "5393979c-7b74-4d57-b1f9-20e1c4471d34"
+JITFunc = "c93d37db-b35c-416c-a43c-2441531e91a0"
+Match = "7eb4fadd-790c-5f42-8a69-bfa0b872bfbf"
+SymEngine = "123dc426-2d89-5057-bbad-38513e3affd8"
