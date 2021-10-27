@@ -1,6 +1,6 @@
 include("UniOp.jl")
 include("MultiOp.jl")
-export DA, op, initInputMultiBandSpinSymmetric
+export DA, op, initInputMultiBandSpinSymmetric,defaultSpatialIndex
 # we add some convenient interface to create operator
 using Match
 
@@ -114,7 +114,11 @@ end
 
 """
 we use a single symbol for each entry of the green function.
-the green function is of format 
+the green function is of format.
+Also, to facilitate the use of ssa tape, we return the order of the symbol
+defaultSymbol="g0"
+orb=1
+n_orbital=2
 """
 function initInputMultiBandSpinSymmetric(da::DA;defaultSymbol="g0")
     input=Dict{Any,Basic}()
@@ -139,6 +143,6 @@ function initInputMultiBandSpinSymmetric(da::DA;defaultSymbol="g0")
             end
         end
     end
-    input
+    input, [Symbol("$(defaultSymbol)_$(orb)_$(i)_$(j)") for orb in 1:n_orbital for j in 1:da.N for i in 1:da.N]
 end
 

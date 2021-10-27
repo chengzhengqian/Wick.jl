@@ -2,6 +2,7 @@
 using Revise
 
 using Wick
+using SymEngine
 a=BDict{Int,String}()
 
 haskey(a.a_to_b,"12")
@@ -54,3 +55,57 @@ evalTape(:(x+y*z+1.0*2.0),ssatape)
 using SymEngine
 expr=Basic("x+y+1.0*2.0")
 evalTape(Meta.parse("$(expr)"),ssatape)
+
+# treat power and minux
+dump(:(-x+1))
+dump(:(x-1))
+dump(:(x^2))
+2 isa Number
+2==2.0
+evalTape(:(x^2),ssatape)
+evalTape(:(x^3),ssatape)
+r=evalTape(:(-x+1),ssatape)
+evalTape(r,:r1,ssatape)
+r=evalTape(Basic("0"),ssatape)
+s=convert(Basic,r,ssatape)
+typeof(s)
+evalTape(s,ssatape)
+
+# we update the outpu form, now test it.
+using SymEngine
+ssatape=SSATape()
+r=evalTape(Basic("x+1+y*x+z*y"),ssatape)
+# add result to output. (now, we don't specify the output order)
+evalTape(r,:r1,ssatape)
+outputArray=[:r1]
+inputArray=rand(3)
+interpreter=SSAInterpreter(ssatape,outputArray)
+
+interpret(InputNode(0),interpreter,inputArray)
+interpret(ComputeNode(0),interpreter,inputArray)
+interpret(NumberNode(0),interpreter,inputArray)
+interpreter(0.0,0.0,0.0)
+
+
+# now, we write the intepreter for the SSATape
+# we test a more complex example
+expr1="x+y+z^2-w+1*(2-x+y*w)"
+expr2="x*4-y+z^2-w+1*(2-x+y*w)+(-w)*x"
+ssatape=SSATape()
+r=evalTape(Basic(expr1),ssatape)
+# add result to output. (now, we don't specify the output order)
+evalTape(r,:r1,ssatape)
+r=evalTape(Basic(expr2),ssatape)
+# add result to output. (now, we don't specify the output order)
+evalTape(r,:r2,ssatape)
+outputArray=[:r1,:r2]
+interpreter=SSAInterpreter(ssatape,outputArray)
+inputArgs=getInputArgs(interpreter)
+test_input=rand(length(inputArgs))
+compiled_func=eval(Meta.parse("($(join(inputArgs,",")))->[$(expr1),$(expr2)]"))
+interpreter(test_input...)-compiled_func(test_input...)
+@time interpreter(test_input...)
+@time compiled_func(test_input...)
+# we can write the machine code generation after we finish the Wick theorm.
+r=evalTape(Basic("0"),ssatape)
+convert(Basic,r,ssatape)

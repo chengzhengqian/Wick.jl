@@ -1,6 +1,9 @@
 # a simplified version of SSA, non condition right now
 
-export InputNode, OutputNode, ComputeNode, BDict, getfromA, getfromB,hasA, hasB, add,SSAForm, SSATape, evalTape
+using Base.Meta
+using SymEngine
+
+export Node, InputNode, NumberNode, ComputeNode, BDict, getfromA, getfromB,hasA, hasB, add,SSAForm, SSATape, evalTape, getInputArgs, setInputArgs,addTape
 
 abstract type Node end
 
@@ -16,17 +19,17 @@ function Base.show(io::IO,input::InputNode)
     print(io,"$(ReservedInputNodeSymbol)$(input.idx)")
 end
 
-struct OutputNode <: Node
-    idx::Int
-end
+# struct OutputNode <: Node
+#     idx::Int
+# end
 
-const ReservedOutputNodeSymbol="O"
-"""
-output node
-"""
-function Base.show(io::IO,output::OutputNode)
-    print(io,"$(ReservedOutputNodeSymbol)$(output.idx)")
-end
+# const ReservedOutputNodeSymbol="O"
+# """
+# output node
+# """
+# function Base.show(io::IO,output::OutputNode)
+#     print(io,"$(ReservedOutputNodeSymbol)$(output.idx)")
+# end
 
 struct ComputeNode <: Node
     idx::Int
@@ -132,22 +135,49 @@ end
 We use BDict to store the information
 """
 struct SSATape    
-    input_name::BDict{InputNode,Symbol} #  track the order of the input args
+    input::BDict{InputNode,Symbol} #  track the order of the input args
     compute::BDict{ComputeNode,SSAForm}
-    output::Dict{OutputNode,Node} # each output node strictly correpodes a compute node, but a compute node may correspond zero or multiple output node (or maybe just input node, though that does not make too much sense here)
-    output_name::BDict{OutputNode,Symbol} #  track the order of the output args
+    # we don't need to define the OutputNode, as we just need to record the correpsonding ComputeNode for a given output symbol
+    output::Dict{Symbol,Node} # each output node strictly correpodes a compute node, but a compute node may correspond zero or multiple output node (or maybe just input node, though that does not make too much sense here)
+    # output_name::BDict{OutputNode,Symbol} #  track the order of the output args
     number::BDict{NumberNode,Float64}     #  we assume all number are Float64
 end
 
 function SSATape()
-    SSATape(BDict{InputNode,Symbol}(),BDict{ComputeNode,SSAForm}(),
-            Dict{OutputNode,ComputeNode}(),BDict{OutputNode,Symbol}(),
+    SSATape(BDict{InputNode,Symbol}(),
+            BDict{ComputeNode,SSAForm}(),
+            Dict{Symbol,Node}(),
             BDict{NumberNode,Float64}())
 end
 
 """
+focus to printing the key information. Then input args (with given order) and output results (no default order)
+"""
+function Base.show(io::IO, ssatape::SSATape)
+    print(io,"SSATape($(getInputArgs(ssatape)) => $(keys(ssatape.output)), $(length(ssatape.compute)) Compute Steps, $(length(ssatape.number)) Number Constants)")
+end
+
+
+function getInputArgs(ssatape::SSATape)
+    [getfromA(ssatape.input,InputNode(i-1)) for i in 1:length(ssatape.input)]
+end
+
+"""
+to specify the order the input, it is usual to initalize the input
+# we update the API that one should only use addTape to add new symbols
+"""
+function setInputArgs(ssatape::SSATape,input_args::Array{Symbol,1})
+    [ addTape(arg_,ssatape) for arg_ in input_args]
+end
+
+  
+
+"""
 return the InputNode for the symbol.
 If the symbol does not exists, create a new one
+(This is dangerous, as one may forget the specify the order of input.)
+So now, it an symbol does nto exists, throw an error
+And add a function to add symtal
 We follow the convection that Node idx start from 0;
 This means that when we generate the assembly code, we can directly use this index. (though this is not consistent with the julia's default convention)
 As we going to use SymEngine to perform some simplification. So if an symbol start with I, OR C, indicates that it is an input nodes or compute nodes.
@@ -157,30 +187,45 @@ function evalTape(sym::Symbol,tape::SSATape)
     sym_str="$(sym)"
     if(startswith(sym_str,ReservedInputNodeSymbol))
         return InputNode(parse(Int,sym_str[2:end]))
-    elseif(startswith(sym_str,ReservedOutputNodeSymbol))
-        return OutputNode(parse(Int,sym_str[2:end]))
+    # elseif(startswith(sym_str,ReservedOutputNodeSymbol))
+    #     return OutputNode(parse(Int,sym_str[2:end]))
     elseif(startswith(sym_str,ReservedComputeNodeSymbol))
         return ComputeNode(parse(Int,sym_str[2:end]))
     elseif(startswith(sym_str,ReservedNumberNodeSymbol))
         return NumberNode(parse(Int,sym_str[2:end]))
     else
-        input=tape.input_name
+        input=tape.input
         if(!hasB(input,sym))
-            newNode=InputNode(length(input))
-            add(input,newNode=>sym)
+            # newNode=InputNode(length(input))
+            # add(input,newNode=>sym)
+            error("use addTape to add $(sym)!")
         end    
         return getfromB(input,sym)
     end
 end
 
+function addTape(sym::Symbol,tape::SSATape)
+    input=tape.input
+    if(hasB(input,sym))
+        # newNode=InputNode(length(input))
+        # add(input,newNode=>sym)
+        error("$(sym) has been added!")
+    end    
+    newNode=InputNode(length(input))
+    add(input,newNode=>sym)
+end
+
 function evalTape(num::Number,tape::SSATape)
-    number=tape.number
+    number=tape.number    
+    num=convert(Float64,num)
     if(!hasB(number,num))
         newNode=NumberNode(length(number))
         add(number,newNode=>num)
     end
     return getfromB(number,num)
 end
+
+
 
 function evalTape(ssaform::SSAForm,tape::SSATape)
     compute=tape.compute
@@ -195,9 +240,28 @@ end
 function evalTape(expr::Expr,tape::SSATape)
     if(expr.head==:call)
         # we need to treat power with special care, right now, we just treat the remaining case
+        # now, we add support to - and ^
         op=expr.args[1]
-        args=[evalTape(arg_,tape) for arg_ in expr.args[2:end]]
-        evalTape(SSAForm(op,args),tape)
+        args=expr.args[2:end]
+        # treat the power operator
+        if(op==(:^))
+            if(length(args)==2)
+                op=:*
+                # this is not the most efficient way, but for most case, the exponent should be very small, like 2.
+                args=[args[1] for _ in 1:convert(Int,args[2])]
+            else
+                error("power operator expected two arguments but get $(length(args))")
+            end            
+        end
+        if(op==(:-))
+            if(length(args)==1)
+                op=:*
+                args=[-1,args[1]]
+            end            
+        end        
+        # treat the subtraction
+        args=[evalTape(arg_,tape) for arg_ in args]
+        return evalTape(SSAForm(op,args),tape)
     else
         error("unexpected Expr $(expr)")
     end    
@@ -208,8 +272,38 @@ end
 node is assumed to be ComputeNode, but could also be InputNode
 """
 function evalTape(node::Node, sym::Symbol,tape::SSATape)
-    output_name=tape.output_name
-    outputNode=OutputNode(length(output_name))
-    tape.output[outputNode]=node
-    add(output_name,outputNode=>sym)
+    output=tape.output
+    tape.output[sym]=node
 end
+
+# we also need to evaluate the Basic form
+function evalTape(expr::Basic,tape::SSATape)
+    evalTape(Meta.parse("$(expr)"),tape)
+end
+
+"""
+redirect to evalTape
+"""
+function (tape::SSATape)(para...)
+    evalTape(para...,tape)
+end
+
+
+"""
+convert a node to Basic for further computation
+Notice the numbernode is returned as the given number.
+# We check wether the number is a interger or not, as returning a integer like .1.0 will remove some trivial term.
+isinteger(1.0)
+"""
+function Base.convert(::Type{Basic},node::Node,tape::SSATape)
+    if(node isa NumberNode)
+        value=getfromA(tape.number,node)
+        if(isinteger(value))
+            return Basic(convert(Int,value))
+        end        
+        Basic(value)
+    else
+        Basic("$(node)")
+    end
+end
+

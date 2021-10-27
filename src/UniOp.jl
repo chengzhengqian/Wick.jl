@@ -1,5 +1,5 @@
 # UniOp, represent a single produce of creation operator, 
-export createOp,UniOp
+export createOp,UniOp,getOp
 using Base
 using BitIntegers
 # a single operator in 2M bits

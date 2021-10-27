@@ -1,0 +1,26 @@
+# we add a customized gc which will be triggered when the memory increased by a given amount compared with the previous record value
+
+function get_memory_usage()
+    parse(Int,split(String(read(`ps -p $(getpid()) -o vsize`)),"\n")[2])
+end
+
+# in kB
+__previous_memory_usage__=0
+__memory_increase_threshold__=500000
+
+
+function customized_gc()
+    current_memory_usage=get_memory_usage()
+    if(current_memory_usage<__previous_memory_usage__)
+        print("$(__previous_memory_usage__)->$(current_memory_usage); does not perform gc, update  __previous_memory_usage__\n")
+        __previous_memory_usage__=current_memory_usage
+    elseif (current_memory_usage<__previous_memory_usage__+__memory_increase_threshold__)
+        print("$(__previous_memory_usage__)->$(current_memory_usage); does not perform gc, keep  __previous_memory_usage__\n")
+    else
+        print("$(__previous_memory_usage__)->$(current_memory_usage);  perform gc\n")
+        GC.gc()
+        GC.gc()
+        __previous_memory_usage__=get_memory_usage()
+        print("after gc: $(current_memory_usage)->$(__previous_memory_usage__)\n")
+    end    
+end

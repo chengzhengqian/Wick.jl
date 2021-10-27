@@ -1,0 +1,20 @@
+# in PKg mode, ]dev  Wick
+using Revise
+
+using Wick
+
+# for UniOp.jl
+# for annilation operator
+op=createOp("a_1",5)
+# for creation operator (d for dagger, anything thing seems OK from the code)
+op=createOp("a_d_1",5)
+op=createOp("I",5)
+# we add new interface
+
+op=UniOp("a_1",2)
+op=UniOp("a_2",2)
+op=UniOp("a_d_2",2)
+op=UniOp("a_3",2)               #  should thow a error
+op=UniOp("a_d_3",2)               #  should thow a error
+
+# 

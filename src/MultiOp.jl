@@ -14,13 +14,20 @@ function Base.show(io::IO,x::MultiOp{T,F}) where {T,F}
     if(length(x.val)==0)
         print(io,"0")
     else
+        idx=0
+        max_idx=10
         for (k,c) in x.val
-        if(!is_first)
-            print(io,"+")
-        end
-        print(io,"(");print(io,c);print(io,")")
-        print(io,UniOp(k,x.M))
-        is_first=false
+            if(!is_first)
+                print(io,"+")
+            end
+            if(idx>max_idx)
+                print(io,"...")
+                return
+            end
+            print(io,"(");print(io,c);print(io,")")
+            print(io,UniOp(k,x.M))
+            is_first=false
+            idx+=1
         end
     end    
 end
@@ -28,6 +35,7 @@ end
 function createMOp(c::F,op::UniOp{T}) where {T,F}
     MultiOp(Dict(op.val=>c),op.M)
 end
+
 
 function createMOp(c::F,str::String,s::Number) where F
     op=createOp(str,s)
@@ -308,3 +316,16 @@ function simplify(mop::MultiOp{T,Basic}) where T
     mop
 end
 
+"""
+When we use the opDiff, we require the argument is UniOp.
+While the most code interface is for MultiOp. When MultiOp has only one entry, we could convert the MultiOp to UniOp, with the coefficient
+"""
+function UniOp(mop::MultiOp)
+    s=mop.M
+    if(length(mop.val)==1)
+        k=collect(keys(mop.val))[1]
+        UniOp(k,s),mop.val[k]
+    else
+        error("$(mop) should only have one entry")
+    end    
+end

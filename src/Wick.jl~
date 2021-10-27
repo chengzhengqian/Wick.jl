@@ -1,0 +1,5 @@
+module Wick
+
+greet() = print("Hello World!")
+
+end # module
