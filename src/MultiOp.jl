@@ -307,7 +307,7 @@ this is only necessary when we the field is symbolic
 function simplify(mop::MultiOp{T,Basic}) where T
     for (k,c) in mop.val
         new_val=expand(c)
-        if(new_val==0)
+        if(new_val==0 || new_val==0.0)
             delete!(mop.val,k)
         else
             mop.val[k]=new_val

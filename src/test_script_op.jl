@@ -40,15 +40,19 @@ evalWick(uop,uniopMap,ssatape)
 evalWick(op1,uniopMap,ssatape)
 
 # organize the code
-
+# we now allow only evaluate the coefficient of op
 da=DA(4,2)
 input,input_args=initInputMultiBandSpinSymmetric(da)
+u_args=[:u,:v]
 ssatape=SSATape()
-setInputArgs(ssatape,input_args)
+setInputArgs(ssatape,[input_args...,u_args...])
 uniopMap=initUniOpMap(input,ssatape)
-op1=op(da,"dm",[1,1,1,1])*op(da,"dm",[1,2,1,2])
-op2=op(da,"dm",[2,1,2,1])*op(da,"dm",[2,2,2,2])
-op3=op(da,"dm",[3,1,3,1])*op(da,"dm",[3,2,3,2])
+op1=Basic("u")*op(da,"dm",[1,1,1,1])*op(da,"dm",[1,2,1,2])
+op2=Basic("v")*op(da,"dm",[2,1,2,1])*op(da,"dm",[2,2,2,2])
+op3=Basic("u+v")*op(da,"dm",[3,1,3,1])*op(da,"dm",[3,2,3,2])
+op4=simplify(op1*op2*op3)
+mop=op4
+evalWick(op4,uniopMap,ssatape)
 
 r=evalWick(op2*op1*op3,uniopMap,ssatape)
 mop=op2*op1*op3
@@ -56,6 +60,9 @@ val=collect(mop.val)[1][1]
 uop=UniOp(val,mop.M)
 getOp(uop)
 mop=op1*op2+op1
+mop_new=evalWick(mop,ssatape)
+evalWick(mop_new,uniopMap,ssatape)
+evalWick(mop,uniopMap,ssatape)
 
 num_to_uop=Dict{Int,Set{UniOp}}()
 for val in keys(mop.val)

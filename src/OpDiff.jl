@@ -56,3 +56,11 @@ function opDiff(target::MultiOp{T,F}, args...) where {T,F}
     end
     target
 end
+"""
+we also add an convinienet interface when we represent arg in MultiOp
+here, the coefficinet is defined as 1/c. which is consistent with our definition with regarding green function 
+"""
+function opDiff(target::MultiOp{T,F},marg::MultiOp) where {T,F}
+    arg,c=UniOp(marg)
+    opDiff(target,arg)*(1/c)
+end

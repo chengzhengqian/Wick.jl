@@ -21,15 +21,18 @@ function initUniOpMap(input::Dict,ssatape::SSATape)
 end
 
 """
-We should also have a function that evaluate the coeeficient only
+We should also have a function that evaluate the coefficient only
+This may help to avoid unnecessary computation
 """
 function evalWick(mop::MultiOp{T,F},ssatape::SSATape) where {T,F}
-    result=MultiOp()
+    s=mop.M
+    result=MultiOp(Dict{T,F}(),s)
     for (k,c) in mop.val
         node=ssatape(c)
         value=convert(Basic,node,ssatape)
-        
-    end    
+        result.val[k]=value
+    end
+    result
 end
 
 
