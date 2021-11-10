@@ -106,3 +106,17 @@ func_interp(input_test...)-getOutputArray(ssatape,outputSyms,computeArray)
 
 
 # we now add differentiation function
+#
+
+#  the previous frequency changes the representation from Basic to Expr
+# here, we try to only use Expr
+
+mop1=MultiOp(1.0,UniOp([1,2],3))
+mop2=MultiOp(2.0,UniOp([1,2],3))
+typeof(mop1)
+typeof(mop2)
+mop1*mop2
+
+# dump(:(1+2))
+# a=Expr(:Number,1)
+
