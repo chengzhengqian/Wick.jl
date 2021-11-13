@@ -146,3 +146,32 @@ function initInputMultiBandSpinSymmetric(da::DA;defaultSymbol="g0")
     input, [Symbol("$(defaultSymbol)_$(orb)_$(i)_$(j)") for orb in 1:n_orbital for j in 1:da.N for i in 1:da.N]
 end
 
+"""
+using our new library, MathExpr.jl
+"""
+function initInputMultiBandSpinSymmetric(da::DA,engine::ExprEngine;defaultSymbol="g0")
+    input=Dict{Any,SymExpr}()
+    if(da.L%2!=0)
+        error("the spatial dimension of DA is $(L) which should be even number!")
+    end
+    n_orbital=trunc(Int,(da.L/2))
+    s=size(da)
+    for orb in 1:n_orbital
+        for i in 1:da.N
+            for j in 1:da.N
+                i_up=(i-1)*da.L+defaultSpatialIndex(orb,1)
+                i_dn=(i-1)*da.L+defaultSpatialIndex(orb,2)
+                j_up=(j-1)*da.L+defaultSpatialIndex(orb,1)
+                j_dn=(j-1)*da.L+defaultSpatialIndex(orb,2)
+                sign=1
+                if(j<i)
+                    sign=-1
+                end
+                input[createOp([crIdx(i_up),anIdx(j_up)],s)]=engine(Symbol("$(defaultSymbol)_$(orb)_$(i)_$(j)"))*sign
+                input[createOp([crIdx(i_dn),anIdx(j_dn)],s)]=engine(Symbol("$(defaultSymbol)_$(orb)_$(i)_$(j)"))*sign
+            end
+        end
+    end
+    input, [Symbol("$(defaultSymbol)_$(orb)_$(i)_$(j)") for orb in 1:n_orbital for j in 1:da.N for i in 1:da.N]
+end
+

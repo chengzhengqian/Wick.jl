@@ -9,6 +9,15 @@ function opDiff(target::UniOp,arg::UniOp)
 end
 
 """
+the default one use the SymEngine, see previous, 
+"""
+function opDiff(target::UniOp,arg::UniOp, ::Type{F}) where F
+    s=target.M
+    sign,result=opDiff(getOp(target),getOp(arg))
+    MultiOp(convert(F,sign),UniOp(result,s))
+end
+
+"""
 to implement this, we just need the representation of a UniOp as a array
 
 """
@@ -45,7 +54,7 @@ function opDiff(target::MultiOp{T,F},arg::UniOp) where {T,F}
     s=target.M
     result=MultiOp(Dict{T,F}(),s)
     for (k,c) in target.val
-        addMOpMOp!(result,c*opDiff(UniOp(k,s),arg))
+        addMOpMOp!(result,c*opDiff(UniOp(k,s),arg,F))
     end
     result
 end
@@ -59,8 +68,10 @@ end
 """
 we also add an convinienet interface when we represent arg in MultiOp
 here, the coefficinet is defined as 1/c. which is consistent with our definition with regarding green function 
+# we assume that marg's coefficient should an pure number
 """
 function opDiff(target::MultiOp{T,F},marg::MultiOp) where {T,F}
     arg,c=UniOp(marg)
-    opDiff(target,arg)*(1/c)
+    c_float=convert(Float64,c)
+    opDiff(target,arg)*(1.0/c_float)
 end
