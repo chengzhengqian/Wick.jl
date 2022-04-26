@@ -317,6 +317,21 @@ function simplify(mop::MultiOp{T,Basic}) where T
 end
 
 """
+simplify the term when using MathExpr
+"""
+function simplify(mop::MultiOp{T,SymExpr}) where T
+    for (k,c) in mop.val
+        new_val=MathExpr.simplify(c)
+        if(is_zero(new_val))
+            delete!(mop.val,k)
+        else
+            mop.val[k]=new_val
+        end
+    end
+    mop
+end
+
+"""
 When we use the opDiff, we require the argument is UniOp.
 While the most code interface is for MultiOp. When MultiOp has only one entry, we could convert the MultiOp to UniOp, with the coefficient
 """

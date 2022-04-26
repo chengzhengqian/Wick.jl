@@ -8,7 +8,7 @@
 # We have implement SSATape
 # to start, one should create a uniopMap that store
 # We add a more flexible way to invoke gc
-export evalWick,initUniOpMap
+export evalWick,initUniOpMap, cal
 """
 this for SymEngine.jl
 """
@@ -290,6 +290,13 @@ function evalWick(uop::UniOp, uniopMap::Dict{UniOp,Node},ssatape::SSATape)
 end
 
 
+"""
+A convenient API
+we should put it to wick, 
+"""
+function cal(mop::MultiOp,name,info;num_step_to_gc=5000)
+    evalTape(evalWick(mop,info...;num_step_to_gc=num_step_to_gc),Symbol(name),info[end])
+end
 
 
 

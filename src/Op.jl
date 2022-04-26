@@ -1,6 +1,6 @@
 include("UniOp.jl")
 include("MultiOp.jl")
-export DA, op, initInputMultiBandSpinSymmetric,defaultSpatialIndex
+export DA, op, initInputMultiBandSpinSymmetric,defaultSpatialIndex,initInput1dOneBandWithTranslationSymmetry, hopping, x_ops, initInput1dOneBandWithTranslationSymmetryAndZ, initInputGeneralN2, initInputGeneralN2WithZ
 # we add some convenient interface to create operator
 using Match
 
@@ -112,66 +112,78 @@ function defaultSpatialIndex(orbital_idx, spin_idx)
     (orbital_idx-1)*2+spin_idx
 end
 
+# we add some extra function to build operators, they are originally written for the two band model, and we move them here
+
 """
-we use a single symbol for each entry of the green function.
-the green function is of format.
-Also, to facilitate the use of ssa tape, we return the order of the symbol
-defaultSymbol="g0"
-orb=1
-n_orbital=2
+X operator for a given orbital and time step, i.e, the Hubbard oeprator for one band case
 """
-function initInputMultiBandSpinSymmetric(da::DA;defaultSymbol="g0")
-    input=Dict{Any,Basic}()
-    if(da.L%2!=0)
-        error("the spatial dimension of DA is $(L) which should be even number!")
-    end
-    n_orbital=trunc(Int,(da.L/2))
-    s=size(da)
-    for orb in 1:n_orbital
-        for i in 1:da.N
-            for j in 1:da.N
-                i_up=(i-1)*da.L+defaultSpatialIndex(orb,1)
-                i_dn=(i-1)*da.L+defaultSpatialIndex(orb,2)
-                j_up=(j-1)*da.L+defaultSpatialIndex(orb,1)
-                j_dn=(j-1)*da.L+defaultSpatialIndex(orb,2)
-                sign=1
-                if(j<i)
-                    sign=-1
-                end
-                input[createOp([crIdx(i_up),anIdx(j_up)],s)]=Basic("$(defaultSymbol)_$(orb)_$(i)_$(j)")*sign
-                input[createOp([crIdx(i_dn),anIdx(j_dn)],s)]=Basic("$(defaultSymbol)_$(orb)_$(i)_$(j)")*sign
-            end
-        end
-    end
-    input, [Symbol("$(defaultSymbol)_$(orb)_$(i)_$(j)") for orb in 1:n_orbital for j in 1:da.N for i in 1:da.N]
+function x_ops(da::DA,orb,t)
+    idx_up=defaultSpatialIndex(orb,1)
+    idx_dn=defaultSpatialIndex(orb,2)
+    n_up=op(da,"dm",[idx_up,t,idx_up,t])
+    n_dn=op(da,"dm",[idx_dn,t,idx_dn,t])
+    p_up=1-n_up
+    p_dn=1-n_dn
+    Xe=p_up*p_dn
+    Xup=n_up*p_dn
+    Xdn=p_up*n_dn
+    Xd=n_up*n_dn
+    Xe,Xup,Xdn,Xd
 end
 
 """
-using our new library, MathExpr.jl
+using MathExpr.jl as coefficient
 """
-function initInputMultiBandSpinSymmetric(da::DA,engine::ExprEngine;defaultSymbol="g0")
-    input=Dict{Any,SymExpr}()
-    if(da.L%2!=0)
-        error("the spatial dimension of DA is $(L) which should be even number!")
-    end
-    n_orbital=trunc(Int,(da.L/2))
-    s=size(da)
-    for orb in 1:n_orbital
-        for i in 1:da.N
-            for j in 1:da.N
-                i_up=(i-1)*da.L+defaultSpatialIndex(orb,1)
-                i_dn=(i-1)*da.L+defaultSpatialIndex(orb,2)
-                j_up=(j-1)*da.L+defaultSpatialIndex(orb,1)
-                j_dn=(j-1)*da.L+defaultSpatialIndex(orb,2)
-                sign=1
-                if(j<i)
-                    sign=-1
-                end
-                input[createOp([crIdx(i_up),anIdx(j_up)],s)]=engine(Symbol("$(defaultSymbol)_$(orb)_$(i)_$(j)"))*sign
-                input[createOp([crIdx(i_dn),anIdx(j_dn)],s)]=engine(Symbol("$(defaultSymbol)_$(orb)_$(i)_$(j)"))*sign
-            end
-        end
-    end
-    input, [Symbol("$(defaultSymbol)_$(orb)_$(i)_$(j)") for orb in 1:n_orbital for j in 1:da.N for i in 1:da.N]
+function x_ops(da::DA,orb,t,engine::ExprEngine)
+    idx_up=defaultSpatialIndex(orb,1)
+    idx_dn=defaultSpatialIndex(orb,2)
+    n_up=op(da,"dm",[idx_up,t,idx_up,t],engine(1.0))
+    n_dn=op(da,"dm",[idx_dn,t,idx_dn,t],engine(1.0))
+    p_up=1-n_up
+    p_dn=1-n_dn
+    Xe=p_up*p_dn
+    Xup=n_up*p_dn
+    Xdn=p_up*n_dn
+    Xd=n_up*n_dn
+    Xe,Xup,Xdn,Xd
 end
 
+"""
+a_i_spin1†a_j_spin2
+1, spin up, 2 spin dn
+hopping between two spin orbital, 
+We update so we can take two different tiem step
+we also add DA as parameters
+"""
+function hopping(da::DA,i,spin1,j,spin2,t1,t2)
+    idx1=defaultSpatialIndex(i,spin1)
+    idx2=defaultSpatialIndex(j,spin2)
+    op(da,"dm",[idx1,t1,idx2,t2])
+end
+
+function hopping(da::DA,i,spin1,j,spin2,t1,t2,engine::ExprEngine)
+    idx1=defaultSpatialIndex(i,spin1)
+    idx2=defaultSpatialIndex(j,spin2)
+    op(da,"dm",[idx1,t1,idx2,t2],engine(1.0))
+end
+
+
+"""
+a_i_spin1†a_j_spin2
+hopping between two spin orbital at a given tie step
+"""
+function hopping(da::DA,i,spin1,j,spin2,t)
+    # idx1=defaultSpatialIndex(i,spin1)
+    # idx2=defaultSpatialIndex(j,spin2)
+    # op(da,"dm",[idx1,t,idx2,t])
+    hopping(da,i,spin1,j,spin2,t,t)
+end
+
+function hopping(da::DA,i,spin1,j,spin2,t,engine::ExprEngine)
+    # idx1=defaultSpatialIndex(i,spin1)
+    # idx2=defaultSpatialIndex(j,spin2)
+    # op(da,"dm",[idx1,t,idx2,t])
+    hopping(da,i,spin1,j,spin2,t,t,engine)
+end
+
+include("./Input.jl")
